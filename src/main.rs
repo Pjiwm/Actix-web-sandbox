@@ -1,11 +1,18 @@
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
+use std::sync::Mutex;
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| {
+    let counter = web::Data::new(AppStateWithCounter {
+        counter: Mutex::new(0),
+    });
+
+    HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(AppState {
                 app_name: "Actix web".to_owned(),
             }))
+            .app_data(counter.clone())
+            .service(mutex_index)
             .service(index)
             .service(hello)
             .service(echo)
@@ -19,11 +26,24 @@ async fn main() -> std::io::Result<()> {
 struct AppState {
     app_name: String,
 }
+
+struct AppStateWithCounter {
+    counter: Mutex<i32>,
+}
+
 #[get("/state")]
 async fn index(data: web::Data<AppState>) -> String {
     let app_name = &data.app_name;
     format!("Hello {app_name}")
 }
+
+#[get("/mutex-state")]
+async fn mutex_index(data: web::Data<AppStateWithCounter>) -> String {
+    let mut counter = data.counter.lock().unwrap();
+    *counter += 1;
+    format!("Hello {counter}")
+}
+
 #[get("/")]
 async fn hello() -> impl Responder {
     HttpResponse::Ok().body("Hello world!")

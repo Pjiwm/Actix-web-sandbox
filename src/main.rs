@@ -1,5 +1,6 @@
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, Scope};
-use std::sync::Mutex;
+use std::{mem::take, sync::Mutex};
+mod models;
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let counter = web::Data::new(AppStateWithCounter {
@@ -8,6 +9,7 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         let user_scope = web::scope("/user").service(create_user).service(show_user);
+        let post_scope = web::scope("/post").service(create_post);
         App::new()
             .app_data(web::Data::new(AppState {
                 app_name: "Actix web".to_owned(),
@@ -18,8 +20,10 @@ async fn main() -> std::io::Result<()> {
             .service(hello)
             .service(echo)
             .service(user_scope)
+            .service(post_scope)
             .route("/hey", web::get().to(manual_hello))
     })
+    .workers(8)
     .bind(("0.0.0.0", 8080))?
     .run()
     .await
@@ -69,4 +73,14 @@ async fn show_user() -> impl Responder {
 #[post("/create")]
 async fn create_user(req_body: String) -> impl Responder {
     HttpResponse::Ok().body(format!("created: {req_body}"))
+}
+// Trying out with JSOn
+#[post("/create")]
+async fn create_post(req_body: String) -> impl Responder {
+    let body = &req_body.clone();
+    let parts = body.split("\r\n\r\n").collect::<Vec<&str>>();
+    models::Post {
+        title: parts.get(0).unwrap().to_string(),
+        body: parts.get(1).unwrap().to_owned().to_string(),
+    }
 }

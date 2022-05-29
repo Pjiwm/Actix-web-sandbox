@@ -1,4 +1,8 @@
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, Scope};
+use actix_web::{
+    error::HttpError, get, post, web, App, Either, Error, HttpResponse, HttpServer, Responder,
+    Scope,
+};
+use models::Post;
 use std::{mem::take, sync::Mutex};
 mod models;
 #[actix_web::main]
@@ -22,6 +26,7 @@ async fn main() -> std::io::Result<()> {
             .service(user_scope)
             .service(post_scope)
             .route("/hey", web::get().to(manual_hello))
+            .service(bad_req_index)
     })
     .workers(8)
     .bind(("0.0.0.0", 8080))?
@@ -82,5 +87,21 @@ async fn create_post(req_body: String) -> impl Responder {
     models::Post {
         title: parts.get(0).unwrap().to_string(),
         body: parts.get(1).unwrap().to_owned().to_string(),
+    }
+}
+
+type RegisterResult = Either<HttpResponse, Result<Post, Error>>;
+#[post("/error_post")]
+async fn bad_req_index(req_body: String) -> RegisterResult {
+    let body = &req_body.clone();
+    let parts = body.split("\r\n\r\n").collect::<Vec<&str>>();
+    if parts.len() != 2 {
+        Either::Left(HttpResponse::BadRequest().body("bad data"))
+    } else {
+        let model = models::Post::new(
+            parts.get(0).unwrap().to_string(),
+            parts.get(1).unwrap().to_string(),
+        );
+        Either::Right(Ok(model))
     }
 }

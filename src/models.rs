@@ -7,6 +7,11 @@ pub struct Post {
     pub body: String,
 }
 
+impl Post {
+    pub fn new(title: String, body: String) -> Post {
+        Post { title, body }
+    }
+}
 impl Responder for Post {
     type Body = BoxBody;
 
@@ -16,5 +21,6 @@ impl Responder for Post {
         HttpResponse::Ok()
             .content_type(ContentType::json())
             .body(body)
+
     }
 }

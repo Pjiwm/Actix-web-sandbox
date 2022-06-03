@@ -1,9 +1,6 @@
-use actix_web::{
-    error::HttpError, get, post, web, App, Either, Error, HttpResponse, HttpServer, Responder,
-    Scope,
-};
+use actix_web::{get, post, web, App, Either, Error, HttpResponse, HttpServer, Responder};
 use models::Post;
-use std::{mem::take, sync::Mutex};
+use std::sync::Mutex;
 mod models;
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -12,8 +9,9 @@ async fn main() -> std::io::Result<()> {
     });
 
     HttpServer::new(move || {
-        let user_scope = web::scope("/user").service(create_user).service(show_user);
-        let post_scope = web::scope("/post").service(create_post);
+        let user_scope = web::scope("/user").service(create_user).service(show_user).service(hello_user);
+
+        let post_scope = web::scope("/post").service(create_post).service(hello_post).service(query_style);
         App::new()
             .app_data(web::Data::new(AppState {
                 app_name: "Actix web".to_owned(),
@@ -104,4 +102,21 @@ async fn bad_req_index(req_body: String) -> RegisterResult {
         );
         Either::Right(Ok(model))
     }
+}
+
+#[get("/{user_id}/{user_name}")]
+async fn hello_user(path: web::Path<(u32, String)>) -> impl Responder {
+    let (user_id, user_name) = path.into_inner();
+    HttpResponse::Ok().body(format!("Hello {}! id: {}", user_name, user_id))
+}
+
+#[get("/{title}/{body}")]
+async fn hello_post(post: web::Path<Post>) -> impl Responder {
+    let post = post.into_inner();
+    HttpResponse::Ok().body(format!("Post title: {}! \n post content: {}", post.title, post.body))
+}
+// Trying it out with Query
+#[get("/query-style")]
+async fn query_style(query: web::Json<models::Post>) -> impl Responder {
+    query
 }
